@@ -1,16 +1,12 @@
 name: OSINT Daily Scanner
-
-# 1. THE TRIGGERS (When should this run?)
 on:
   schedule:
     # Runs every day at 2:30 AM UTC (which is 8:00 AM IST)
     - cron: '30 2 * * *'
-  # This line lets us click a "Run" button manually to test it!
   workflow_dispatch:
 
 jobs:
   run-security-scan:
-    # We are telling GitHub to boot up a fresh Ubuntu Linux server
     runs-on: ubuntu-latest
 
     steps:
@@ -30,7 +26,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests python-dotenv
 
-      # Step D: Run the script, injecting the secret vault into the environment
+      # Step D: Run the script, injecting the webhook secretely and check it 
       - name: Execute Scanner
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
