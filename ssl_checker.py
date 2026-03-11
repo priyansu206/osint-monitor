@@ -28,21 +28,32 @@ def check_ssl_expiry(domain):
 
     except Exception as e:
         return f"Error connecting to {domain}: {e}"
-
-# --- TEST THE ENGINE ---
+# --- BATCH PROCESSING ENGINE ---
 if __name__ == "__main__":
-    # Let's test it on a real company
-    target_company = "google.com" 
+    print("=== OSINT DOMAIN MONITOR STARTING ===")
     
-    days_left = check_ssl_expiry(target_company)
-    
-    print("-" * 40)
-    print(f"Target: {target_company}")
-    print(f"SSL Certificate expires in: {days_left} days")
-    print("-" * 40)
-    
-    # Simple Alert Logic
-    if type(days_left) == int and days_left < 30:
-        print("[CRITICAL ALERT] Certificate expiring soon! Client must be notified.")
-    else:
-        print("[OK] Certificate is healthy.")
+    # 1. Open the "database" file
+    try:
+        with open("targets.txt", "r") as file:
+            # Read lines and remove any invisible newline characters
+            domains = [line.strip() for line in file.readlines() if line.strip()]
+    except FileNotFoundError:
+        print("[ERROR] targets.txt not found. Please create it.")
+        exit()
+
+    print(f"Loaded {len(domains)} targets for scanning...\n")
+
+    # 2. Loop through every domain in the list
+    for target in domains:
+        days_left = check_ssl_expiry(target)
+        
+        # 3. Generate the Report Line
+        if isinstance(days_left, int):
+            if days_left < 30:
+                print(f"[URGENT] {target}: Expires in {days_left} days! (Action Required)")
+            else:
+                print(f"[OK] {target}: Healthy ({days_left} days remaining)")
+        else:
+            print(f"[ERROR] {target}: {days_left}")
+            
+    print("\n=== SCAN COMPLETE ===")
