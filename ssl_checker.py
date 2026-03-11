@@ -1,59 +1,75 @@
 import ssl
 import socket
 import datetime
+import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
 def check_ssl_expiry(domain):
-    print(f"[*] Connecting to {domain} to inspect SSL Certificate...")
-    
-    # 1. Create a secure connection tool (Context)
+    print(f"[*] Checking {domain}...")
     context = ssl.create_default_context()
-    
     try:
-        # 2. Open a network connection (Socket) on Port 443 (HTTPS)
-        with socket.create_connection((domain, 443)) as sock:
-            # 3. Wrap the connection in our secure context
+        with socket.create_connection((domain, 443), timeout=5) as sock:
             with context.wrap_socket(sock, server_hostname=domain) as secure_sock:
-                
-                # 4. Grab the certificate from the server
                 cert = secure_sock.getpeercert()
-                
-                # 5. Extract the "Expiration Date" string and convert it to a real Date object
                 expiry_str = cert['notAfter']
                 expiry_date = datetime.datetime.strptime(expiry_str, "%b %d %H:%M:%S %Y %Z")
                 
-                # 6. Calculate how many days are left
-                days_remaining = (expiry_date - datetime.datetime.utcnow()).days
-                
-                return days_remaining
-
+                # FIXED: Modern timezone-aware UTC datetime
+                now_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+                return (expiry_date - now_utc).days
     except Exception as e:
-        return f"Error connecting to {domain}: {e}"
-# --- BATCH PROCESSING ENGINE ---
-if __name__ == "__main__":
-    print("=== OSINT DOMAIN MONITOR STARTING ===")
+        # If the cert is already dead, it triggers this exception
+        return f"SSL Verification Failed: {e}"
+
+#     DISCORD ALERTING 
+def send_discord_alert(domain, issue):
+    if not DISCORD_WEBHOOK_URL:
+        print("[!] Error: Webhook URL not found in .env file!")
+        return
+
+    # Handle both "days left" (int) and "connection errors" (str)
+    if isinstance(issue, int):
+        status_message = f"SSL expires in **{issue} days**!"
+    else:
+        status_message = f"Connection Error: `{issue}`"
+
+    message = {
+        "content": f"🚨 **SECURITY ALERT PLEASE INVESTIGATE** 🚨\n**Target:** `{domain}`\n**Status:** {status_message}"
+    }
     
-    # 1. Open the "database" file
     try:
-        with open("targets.txt", "r") as file:
-            # Read lines and remove any invisible newline characters
-            domains = [line.strip() for line in file.readlines() if line.strip()]
+        response = requests.post(DISCORD_WEBHOOK_URL, json=message)
+        if response.status_code == 204:
+            print(f"[!] Alert sent to Discord for {domain}")
+        else:
+            print(f"[!] Discord rejected the message. Status Code: {response.status_code}")
+    except Exception as e:
+        print(f"[!] Webhook failed: {e}")
+
+#    BATCH ENGINE 
+if __name__ == "__main__":
+    print("=== OSINT SCANNER STARTING ===")
+    
+    try:
+        with open("targets.txt", "r") as f:
+            domains = [line.strip() for line in f.readlines() if line.strip()]
     except FileNotFoundError:
-        print("[ERROR] targets.txt not found. Please create it.")
+        print("[ERROR] targets.txt missing.")
         exit()
 
-    print(f"Loaded {len(domains)} targets for scanning...\n")
-
-    # 2. Loop through every domain in the list
     for target in domains:
-        days_left = check_ssl_expiry(target)
+        result = check_ssl_expiry(target)
         
-        # 3. Generate the Report Line
-        if isinstance(days_left, int):
-            if days_left < 30:
-                print(f"[URGENT] {target}: Expires in {days_left} days! (Action Required)")
+        if isinstance(result, int):
+            if result < 30:
+                print(f"[URGENT] {target}: {result} days left!")
+                send_discord_alert(target, result) # Trigger alert for expiring AND already expired certs! also notify about certs that are expiring within 30 days!
             else:
-                print(f"[OK] {target}: Healthy ({days_left} days remaining)")
+                print(f"[OK] {target}: Healthy")
         else:
-            print(f"[ERROR] {target}: {days_left}")
-            
-    print("\n=== SCAN COMPLETE ===")
+            print(f"[ERROR] {target}: {result}")
+            send_discord_alert(target, result)
