@@ -8,7 +8,6 @@ import sqlite3
 
 load_dotenv()
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
-
 def check_ssl_expiry(domain):
     print(f"[*] Checking {domain}...")
     context = ssl.create_default_context()
@@ -16,16 +15,21 @@ def check_ssl_expiry(domain):
         with socket.create_connection((domain, 443), timeout=5) as sock:
             with context.wrap_socket(sock, server_hostname=domain) as secure_sock:
                 cert = secure_sock.getpeercert()
+                # 1. Extract the "notAfter" field from the certificate (This is a string like "Jun 30 12:00:00 2024 GMT")
                 expiry_str = cert['notAfter']
-                expiry_date = datetime.datetime.strptime(expiry_str, "%b %d %H:%M:  %S %Y %Z")
                 
-                # FIXED: Modern timezone-aware UTC datetime
-                now_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+                # 2. Convert that string into seconds since the epoch
+                timestamp = ssl.cert_time_to_seconds(expiry_str)
+                
+                # 3. Convert seconds into a proper UTC Date object
+                expiry_date = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc)
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+                
+                # 4. Calc the diff in days
                 return (expiry_date - now_utc).days
     except Exception as e:
-        # If the cert is already dead, it triggers this exception
+        # If the cert is completely invalid/expired, or if there's a connection error, we catch it here and return the error message
         return f"SSL Verification Failed: {e}"
-
 #     DISCORD ALERTING 
 def send_discord_alert(domain, issue):
     if not DISCORD_WEBHOOK_URL:
