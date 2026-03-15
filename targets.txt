@@ -1,4 +1,0 @@
-google.com
-github.com
-expired.badssl.com
-reddit.com
