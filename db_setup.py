@@ -1,6 +1,6 @@
 import sqlite3
 
-print("=== BUILDING THE DATABASE ===")
+print("--- BUILDING THE DATABASE ---")
 
 # 1. Connect to the database
 # (If 'osint_monitor.db' doesn't exist, SQLite automatically creates it!)

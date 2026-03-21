@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSINT Domain Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white font-sans antialiased p-8">
+
+    <div class="max-w-4xl mx-auto mt-10">
+        <div class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
+            <h1 class="text-3xl font-bold text-blue-400">🛡️ OSINT Monitor SOC</h1>
+            <span class="bg-blue-900 text-blue-200 text-sm px-3 py-1 rounded-full">System Online</span>
+        </div>
+
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
+            <h2 class="text-xl font-semibold mb-4">Add Target for Monitoring</h2>
+            <form action="/add" method="POST" class="flex gap-4">
+                <input type="text" name="domain" placeholder="e.g., silicon.ac.in" required 
+                       class="flex-1 bg-gray-700 text-white rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button type="submit" 
+                        class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded transition duration-200">
+                    Add Domain
+                </button>
+            </form>
+        </div>
+
+        <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-700 border-b border-gray-600">
+                        <th class="p-4 font-semibold text-gray-300">ID</th>
+                        <th class="p-4 font-semibold text-gray-300">Monitored Domain</th>
+                        <th class="p-4 font-semibold text-gray-300">Status</th>
+                        <th class="p-4 font-semibold text-gray-300">Last Scanned (UTC)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for target in targets %}
+                    <tr class="border-b border-gray-700 hover:bg-gray-750 transition duration-150">
+                        <td class="p-4 text-gray-400">#{{ target.id }}</td>
+                        <td class="p-4 font-medium text-blue-300">{{ target.domain_name }}</td>
+                        <td class="p-4 font-medium">
+                            {% if target.status %}
+                                {{ target.status }}
+                            {% else %}
+                                <span class="text-yellow-500">Waiting for engine...</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-gray-400">
+                            {% if target.last_checked %}
+                                {{ target.last_checked }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

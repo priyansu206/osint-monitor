@@ -55,51 +55,46 @@ def send_discord_alert(domain, issue):
     except Exception as e:
         print(f"[!] Webhook failed: {e}")
 
-#    BATCH ENGINE 
+# --- BATCH ENGINE---
 if __name__ == "__main__":
-    print("--- OSINT SCANNER STARTING (DB MODE) ---")
+    print("--- OSINT SCANNER STARTING ---")
     
-    # 1. Connect to the database
     conn = sqlite3.connect('osint_monitor.db')
     cursor = conn.cursor()
 
-    # 2. Fetch all domains from the targets table
     try:
         cursor.execute("SELECT id, domain_name FROM targets")
-        # .fetchall() grabs all the results and puts them in a list of tuples: [(1, 'google.com'), ...]
         domains_from_db = cursor.fetchall() 
     except sqlite3.OperationalError:
         print("[ERROR] Database not found. Did you run db_setup.py?")
         exit()
 
     if not domains_from_db:
-        print("[!] No domains found in the database. Add some first!")
+        print("[!] No domains found in the database.")
         exit()
 
-    print(f"Loaded {len(domains_from_db)} targets from the database...\n")
-
     for row in domains_from_db:
-        target_id = row[0]       # The ID number
-        target_domain = row[1]   # The actual URL
+        target_id = row[0]       
+        target_domain = row[1]   
         
         result = check_ssl_expiry(target_domain)
         
         if isinstance(result, int):
             if result < 30:
+                status_text = f"🚨 Expiring ({result} days)"
                 print(f"[URGENT] {target_domain}: {result} days left!")
                 send_discord_alert(target_domain, result)
             else:
+                status_text = f"✅ Healthy ({result} days)"
                 print(f"[OK] {target_domain}: Healthy ({result} days)")
         else:
+            status_text = "❌ Error (See Logs)"
             print(f"[ERROR] {target_domain}: {result}")
             send_discord_alert(target_domain, result)
             
-        # 5. Update the database to show we just checked this domain
-        # This updates the lastchecked column for this specific ID
         now_utc = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        cursor.execute("UPDATE targets SET last_checked = ? WHERE id = ?", (now_utc, target_id))
+        cursor.execute("UPDATE targets SET last_checked = ?, status = ? WHERE id = ?", (now_utc, status_text, target_id))
 
-    # Save the lastchecked updates and close the connection
     conn.commit()
     conn.close()
     
