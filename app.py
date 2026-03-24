@@ -80,7 +80,7 @@ def add():
     if new_domain:
         clean_domain = new_domain.replace("https://", "").replace("http://", "").strip().strip('/')
         conn = get_db_connection()
-        
+
         conn.execute('INSERT INTO targets (domain_name, user_id) VALUES (?, ?)', (clean_domain, session['user_id']))
         conn.commit()
         conn.close()
@@ -100,4 +100,4 @@ def run_scan():
     return redirect('/')
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=8000)
