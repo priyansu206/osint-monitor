@@ -9,28 +9,59 @@
 <body class="bg-gray-900 text-white font-sans antialiased p-8">
 
     <div class="max-w-4xl mx-auto mt-10">
+        
         <div class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
             <h1 class="text-3xl font-bold text-blue-400">🛡️ OSINT Monitor SOC</h1>
             
             <div class="flex items-center gap-4">
-                <form action="/scan" method="POST" class="m-0">
-                    <button type="submit" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded shadow-lg transition duration-200 flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                        Run Full Scan
-                    </button>
-                </form>
+                {% if session.username %}
+                    <span class="text-gray-400">Welcome, {{ session.username }}</span>
+                    <a href="/logout" class="bg-red-600 hover:bg-red-500 text-white text-sm py-1 px-3 rounded transition duration-200">Logout</a>
+                {% endif %}
                 <span class="bg-blue-900 text-blue-200 text-sm px-3 py-1 rounded-full">System Online</span>
             </div>
         </div>
 
-        <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
-            <h2 class="text-xl font-semibold mb-4">Add Target for Monitoring</h2>
-            <form action="/add" method="POST" class="flex gap-4">
-                <input type="text" name="domain" placeholder="e.g., silicon.ac.in" required 
-                       class="flex-1 bg-gray-700 text-white rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <button type="submit" 
-                        class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded transition duration-200">
-                    Add Domain
+        {% if not session.user_id %}
+        
+        <div class="grid grid-cols-2 gap-8 mt-12">
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg border border-gray-700">
+                <h2 class="text-xl font-semibold mb-4 text-blue-300">Existing Users</h2>
+                <form action="/login" method="POST" class="flex flex-col gap-4">
+                    <input type="text" name="username" placeholder="Username" required class="bg-gray-700 text-white rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="password" name="password" placeholder="Password" required class="bg-gray-700 text-white rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded transition duration-200 mt-2">Log In</button>
+                </form>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg border border-gray-700">
+                <h2 class="text-xl font-semibold mb-4 text-green-300">Create Account</h2>
+                <form action="/register" method="POST" class="flex flex-col gap-4">
+                    <input type="text" name="username" placeholder="Choose a Username" required class="bg-gray-700 text-white rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <input type="password" name="password" placeholder="Choose a Password" required class="bg-gray-700 text-white rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <button type="submit" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded transition duration-200 mt-2">Register</button>
+                </form>
+            </div>
+        </div>
+
+        {% else %}
+
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 flex justify-between items-end">
+            <div class="flex-1 mr-4">
+                <h2 class="text-xl font-semibold mb-4">Add Target for Monitoring</h2>
+                <form action="/add" method="POST" class="flex gap-4">
+                    <input type="text" name="domain" placeholder="e.g., netflix.com" required 
+                           class="flex-1 bg-gray-700 text-white rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded transition duration-200">
+                        Add Domain
+                    </button>
+                </form>
+            </div>
+            
+            <form action="/scan" method="POST" class="m-0">
+                <button type="submit" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded shadow-lg transition duration-200 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    Run Full Scan
                 </button>
             </form>
         </div>
@@ -69,6 +100,7 @@
                 </tbody>
             </table>
         </div>
-    </div>
+        
+        {% endif %} </div>
 </body>
 </html>
