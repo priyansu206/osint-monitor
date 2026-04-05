@@ -6,15 +6,12 @@ import sys
 
 app = Flask(__name__)
 
-# In a production environment, you would want to load this from an environment variable or config file, and it should be a long random string. For development purposes, this is fine.
 app.secret_key = 'super_secret_dev_key_do_not_share' 
 
 def get_db_connection():
     conn = sqlite3.connect('osint_monitor.db')
     conn.row_factory = sqlite3.Row 
     return conn
-
-# 1. NEW: THE LOGIN & REGISTER ROUTES
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -55,10 +52,6 @@ def logout():
     session.clear() 
     return redirect('/')
 
-# ==========================================
-# 2. UPDATED: PROTECTED DASHBOARD ROUTES
-# ==========================================
-
 @app.route('/')
 def index():
     if 'user_id' not in session:
@@ -86,6 +79,18 @@ def add():
         conn.close()
     return redirect('/')
 
+@app.route('/delete/<int:target_id>', methods=['POST'])
+def delete(target_id):
+    if 'user_id' not in session:
+        return redirect('/')
+        
+    conn = get_db_connection()
+    conn.execute('DELETE FROM targets WHERE id = ? AND user_id = ?', (target_id, session['user_id']))
+    conn.commit()
+    conn.close()
+    
+    return redirect('/')
+
 @app.route('/scan', methods=['POST'])
 def run_scan():
     if 'user_id' not in session:
@@ -100,4 +105,4 @@ def run_scan():
     return redirect('/')
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8000)
+    app.run(debug=True, port=1000)

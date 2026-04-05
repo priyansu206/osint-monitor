@@ -7,7 +7,7 @@ cursor = conn.cursor()
 
 cursor.execute('PRAGMA foreign_keys = ON')
 
-# 1. CREATE THE USERS TABLE
+# 1. create the users table to store user credentials and link to targets
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,7 +17,7 @@ cursor.execute('''
 ''')
 print("[+] 'users' table created.")
 
-# 2. CREATE THE TARGETS TABLE 
+# 2. create the targets table to store monitored domains, their status, and link back to the user who added them
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS targets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

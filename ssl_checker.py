@@ -14,10 +14,10 @@ def check_uptime(domain):
     print(f"[*] Pinging {domain} for uptime...")
     url = f"https://{domain}"
     try:
-        # We give the server 5 seconds to answer the door
+        # We only care if the server is responding, not the content, so we set a short timeout and ignore SSL errors here since some targets might have expired certs.
         response = requests.get(url, timeout=5)
         
-        # HTTP 200 = "OK! I am alive!"
+        # IF HTTP 200 = UP, ELSE = SERVER IS UP BUT SOMETHING IS WRONG (LIKE A 500 ERROR)
         if response.status_code == 200:
             return True
         else:
@@ -47,8 +47,7 @@ def send_discord_alert(domain, issue):
     if not DISCORD_WEBHOOK_URL:
         print("[!] Error: Webhook URL not found in .env file!")
         return
-
-    # Handles "days left" , "connection errors", and "uptime errors"
+    # The message will be different if it's a number of days vs an error string, so we handle that here.
     if isinstance(issue, int):
         status_message = f"SSL expires in **{issue} days**!"
     else:
@@ -89,12 +88,12 @@ if __name__ == "__main__":
         target_id = row[0]       
         target_domain = row[1]   
         
-        # --- THE NEW LOGIC FLOW ---
-        # Step 1: Ping the server first
+        # --- THE LOGIC FLOW ---
+        # Step 1: Ping the server to see if it's awake. If it's not, we skip the SSL check because it would just error out anyway, and we want to make sure we alert on downtime even if the SSL is also expired.   
         uptime_result = check_uptime(target_domain)
 
         if uptime_result is True:
-            # Step 2: If the server is awake, check the SSL
+            # Step 2: If the server is up, check the SSL expiry and build a status message based on how many days are left. If there are less than 30 days left, we want to alert on Discord because that's a critical issue that needs attention. If there are more than 30 days, we just mark it as healthy. If there's an error during the SSL check (like the cert is already expired), we want to alert on that too because it's a security risk.  
             ssl_result = check_ssl_expiry(target_domain)
             
             if isinstance(ssl_result, int):
@@ -110,7 +109,7 @@ if __name__ == "__main__":
                 print(f"[ERROR] {target_domain}: {ssl_result}")
                 send_discord_alert(target_domain, ssl_result)
         else:
-            # Step 3: If the server is dead, skip SSL and yell at Discord
+            # Step 3: If the server is down, we want to alert on that immediately because that's the most critical issue. We also include the uptime result in the alert so we have more context on why it's marked as down (like if it was a connection failure vs an HTTP error).
             status_text = f"🔴 DOWN ({uptime_result})"
             print(f"[URGENT] {target_domain} IS OFFLINE! ({uptime_result})")
             send_discord_alert(target_domain, f"SERVER OFFLINE: {uptime_result}")
