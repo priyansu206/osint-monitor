@@ -25,7 +25,32 @@ def check_uptime(domain):
     except requests.exceptions.RequestException:
         # the server is dead
         return "Connection Failed"
-
+#3.threat intelligence check
+def check_threat_intel(domain):
+    print(f"[*] Asking URLhaus if {domain} is malicious...")
+    url = "https://urlhaus-api.abuse.ch/v1/host/"
+    
+    # This is how URLhaus expects the data to be formatted - they want a POST request with form data, and the key for the domain is 'host'. It's a bit old-school but it works.
+    data = {'host': domain} 
+    
+    try:
+        # We send the request and wait for their response. We also set a timeout here because we don't want to get stuck waiting for their API if it's having issues.
+        response = requests.post(url, data=data, timeout=10)
+        
+        if response.status_code == 200:
+            # We translate the response into JSON so we can easily check the fields. URLhaus will return a field called 'query_status' that tells us if they found any records for the domain. If it's 'ok', that means they found something malicious, and if it's 'no_results', that means they didn't find anything. 
+            json_data = response.json()
+            
+            # URLhaus returns 'query_status' = 'ok' if they found malicious records, and 'no_results' if they didn't find anything. So we check that field to determine if the domain is flagged for malware or not.
+            if json_data.get('query_status') == 'ok':
+                return "MALWARE FLAGGED"
+            else:
+                return "SAFE"
+        else:
+            return "API Error"
+    except Exception as e:
+        return "API Timeout"
+    
 # 2.SSL MONITORING
 def check_ssl_expiry(domain):
     print(f"[*] Checking SSL for {domain}...")
