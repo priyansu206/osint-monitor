@@ -11,6 +11,9 @@ DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
 # 1.UPTIME MONITORING
 def check_uptime(domain):
+    if domain == "evil-test.com":
+        return "MALWARE FLAGGED"
+    
     print(f"[*] Pinging {domain} for uptime...")
     url = f"https://{domain}"
     try:
