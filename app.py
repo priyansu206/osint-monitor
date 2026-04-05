@@ -14,6 +14,7 @@ def get_db_connection():
     return conn
 
 @app.route('/register', methods=['POST'])
+
 def register():
     username = request.form.get('username')
     password = request.form.get('password')
@@ -40,7 +41,7 @@ def login():
     conn.close()
     
     if user and check_password_hash(user['password_hash'], password):
-        # Success! Hand them the VIP Wristband
+        # Success! VIP Access Granted!
         session['user_id'] = user['id']
         session['username'] = user['username']
         
@@ -48,7 +49,7 @@ def login():
 
 @app.route('/logout')
 def logout():
-    # Rip up the VIP Wristband
+    # Rip the session out and flush it down the memory hole.
     session.clear() 
     return redirect('/')
 
