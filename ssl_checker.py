@@ -108,38 +108,43 @@ if __name__ == "__main__":
     if not domains_from_db:
         print("[!] No domains found in the database.")
         exit()
-
     for row in domains_from_db:
         target_id = row[0]       
-        target_domain = row[1]   
-        
-        # --- THE LOGIC FLOW ---
-        # Step 1: Ping the server to see if it's awake. If it's not, we skip the SSL check because it would just error out anyway, and we want to make sure we alert on downtime even if the SSL is also expired.   
+        target_domain = row[1]  
+        # the flow of logic here is:
+        # Step A: we check if the server is responding to requests. If it's not responding, we skip the rest of the checks because if it's offline, it doesn't matter if the SSL is expired or if it's flagged for malware - the server is down and that's the most urgent issue to address. If it is responding, then we proceed to check the threat intelligence and SSL status.
         uptime_result = check_uptime(target_domain)
 
         if uptime_result is True:
-            # Step 2: If the server is up, check the SSL expiry and build a status message based on how many days are left. If there are less than 30 days left, we want to alert on Discord because that's a critical issue that needs attention. If there are more than 30 days, we just mark it as healthy. If there's an error during the SSL check (like the cert is already expired), we want to alert on that too because it's a security risk.  
-            ssl_result = check_ssl_expiry(target_domain)
             
-            if isinstance(ssl_result, int):
-                if ssl_result < 30:
-                    status_text = f"🟢 UP | 🚨 Expiring ({ssl_result} days)"
-                    print(f"[URGENT] {target_domain}: {ssl_result} days left!")
-                    send_discord_alert(target_domain, ssl_result)
-                else:
-                    status_text = f"🟢 UP | ✅ Healthy ({ssl_result} days)"
-                    print(f"[OK] {target_domain}: Healthy ({ssl_result} days)")
+            # Step B: If the server is responding, we check the threat intelligence to see if it's flagged for malware. This is important to do before the SSL check because if the domain is serving malware, that's a critical issue that needs immediate attention, and it might not even be worth checking the SSL status if it's already compromised. If it's flagged for malware, we alert immediately. If it's not flagged, then we proceed to check the SSL status.
+            threat_status = check_threat_intel(target_domain)
+            
+            if threat_status == "MALWARE FLAGGED":
+                status_text = f"🟢 UP | 💀 MALWARE DETECTED!"
+                print(f"[URGENT] {target_domain} IS SERVING MALWARE!")
+                send_discord_alert(target_domain, "CRITICAL: Domain flagged for Malware by URLhaus Threat Intel!")
+                
             else:
-                status_text = f"🟢 UP | ❌ Error (See Logs)"
-                print(f"[ERROR] {target_domain}: {ssl_result}")
-                send_discord_alert(target_domain, ssl_result)
+                # Step C: If the server is responding and not flagged for malware, check the SSL
+                ssl_result = check_ssl_expiry(target_domain)
+                
+                if isinstance(ssl_result, int):
+                    if ssl_result < 30:
+                        status_text = f"🟢 UP | 🛡️ SAFE | 🚨 SSL Expiring ({ssl_result} days)"
+                        send_discord_alert(target_domain, ssl_result)
+                    else:
+                        status_text = f"🟢 UP | 🛡️ SAFE | ✅ SSL ({ssl_result} days)"
+                else:
+                    status_text = f"🟢 UP | 🛡️ SAFE | ❌ SSL Error"
+                    send_discord_alert(target_domain, ssl_result)
         else:
-            # Step 3: If the server is down, we want to alert on that immediately because that's the most critical issue. We also include the uptime result in the alert so we have more context on why it's marked as down (like if it was a connection failure vs an HTTP error).
+            # Step D: If the server is not responding, skip everything else
             status_text = f"🔴 DOWN ({uptime_result})"
             print(f"[URGENT] {target_domain} IS OFFLINE! ({uptime_result})")
             send_discord_alert(target_domain, f"SERVER OFFLINE: {uptime_result}")
             
-        # Step 4: Save the combined status to the database
+        # Step E: Save the combined status to the database
         now_utc = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute("UPDATE targets SET last_checked = ?, status = ? WHERE id = ?", (now_utc, status_text, target_id))
 
