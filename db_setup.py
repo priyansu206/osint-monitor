@@ -1,36 +1,47 @@
-import sqlite3
+import os
+import psycopg2
+from dotenv import load_dotenv
 
-print("--- BUILDING THE RELATIONAL DATABASE ---")
+load_dotenv()
+DB_URL = os.getenv("DATABASE_URL")
 
-conn = sqlite3.connect('osint_monitor.db')
-cursor = conn.cursor()
+def setup_cloud_db():
+    print("[*] Connecting to Supabase...")
+    try:
+        # Connect to the database using the URL from the environment variable. Psycopg2 can parse the URL directly, so we can just pass it in.
+        conn = psycopg2.connect(DB_URL)
+        cursor = conn.cursor()
 
-cursor.execute('PRAGMA foreign_keys = ON')
+        print("[*] Building Users table...")
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL
+            )
+        ''')
 
-# 1. create the users table to store user credentials and link to targets
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL UNIQUE,
-        password_hash TEXT NOT NULL
-    )
-''')
-print("[+] 'users' table created.")
+        print("[*] Building Targets table...")
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS targets (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                domain_name VARCHAR(255) NOT NULL,
+                last_checked TIMESTAMP,
+                status VARCHAR(100),
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        ''')
 
-# 2. create the targets table to store monitored domains, their status, and link back to the user who added them
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS targets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        domain_name TEXT NOT NULL,
-        last_checked TIMESTAMP,
-        status TEXT,
-        user_id INTEGER NOT NULL,
-        FOREIGN KEY (user_id) REFERENCES users (id)
-    )
-''')
-print("[+] 'targets' table created and linked to users.")
+        # Save the changes and close the connection.
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print("✅ SUCCESS: Cloud database matrix fully constructed!")
 
-conn.commit()
-conn.close()
+    except Exception as e:
+        print(f"❌ ERROR: Could not connect to Supabase. Check your password and URL.")
+        print(e)
 
-print("[+] Database 'osint_monitor.db' built successfully!")
+if __name__ == '__main__':
+    setup_cloud_db()
