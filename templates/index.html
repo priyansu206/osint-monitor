@@ -78,7 +78,7 @@
                 <tbody>
                     {% for target in targets %}
                     <tr class="border-b border-gray-700 hover:bg-gray-750 transition duration-150">
-                        <td class="p-4 text-gray-400">#{{ target.id }}</td>
+                        <td class="p-4 text-gray-400">#{{ loop.index }}</td>
                         <td class="p-4 font-medium text-blue-300">{{ target.domain_name }}</td>
                         <td class="p-4 font-medium">
                             {% if target.status %}
