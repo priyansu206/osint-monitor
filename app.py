@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, session
 from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
-import psycopg2.extras # <-- ADDED: Allows Flask to read Postgres rows like dictionaries
+import psycopg2.extras 
 import subprocess
 import sys
 import os
@@ -12,10 +12,10 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 app = Flask(__name__)
 
-#pulls the secret key from env files
+#pulls the key from env files
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "super_secret_dev_key_do_not_share")
 
-# DATABASE CONNECTION FUNCTION - This is a helper function to create a new database connection whenever we need to interact with the database. It uses the DATABASE_URL from the environment variables to connect to the PostgreSQL database. This way, we can easily manage our database connections and ensure that we're connecting to the correct database in different environments (development, staging, production).
+# DATABASE CONNECTION FUNCTION - This is a helper function to create a new database connection whenever we need to interact with the database.
 def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL)
     return conn
@@ -32,7 +32,7 @@ def register():
     try:
         cursor.execute('INSERT INTO users (username, password_hash) VALUES (%s, %s)', (username, hashed_pw))
         conn.commit()
-    except psycopg2.IntegrityError: # <-- CHANGED: Catching Postgres specific error
+    except psycopg2.IntegrityError:
         conn.rollback() 
     
     cursor.close()
