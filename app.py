@@ -1,20 +1,26 @@
 from flask import Flask, render_template, request, redirect, session
 from werkzeug.security import generate_password_hash, check_password_hash
-import sqlite3
+import psycopg2
+import psycopg2.extras # <-- ADDED: Allows Flask to read Postgres rows like dictionaries
 import subprocess
 import sys
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 app = Flask(__name__)
 
-app.secret_key = 'super_secret_dev_key_do_not_share' 
+#pulls the secret key from env files
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "super_secret_dev_key_do_not_share")
 
+# DATABASE CONNECTION FUNCTION - This is a helper function to create a new database connection whenever we need to interact with the database. It uses the DATABASE_URL from the environment variables to connect to the PostgreSQL database. This way, we can easily manage our database connections and ensure that we're connecting to the correct database in different environments (development, staging, production).
 def get_db_connection():
-    conn = sqlite3.connect('osint_monitor.db')
-    conn.row_factory = sqlite3.Row 
+    conn = psycopg2.connect(DATABASE_URL)
     return conn
 
 @app.route('/register', methods=['POST'])
-
 def register():
     username = request.form.get('username')
     password = request.form.get('password')
@@ -22,11 +28,14 @@ def register():
     hashed_pw = generate_password_hash(password)
     
     conn = get_db_connection()
+    cursor = conn.cursor()
     try:
-        conn.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)', (username, hashed_pw))
+        cursor.execute('INSERT INTO users (username, password_hash) VALUES (%s, %s)', (username, hashed_pw))
         conn.commit()
-    except sqlite3.IntegrityError:
-        pass 
+    except psycopg2.IntegrityError: # <-- CHANGED: Catching Postgres specific error
+        conn.rollback() 
+    
+    cursor.close()
     conn.close()
     
     return redirect('/')
@@ -37,7 +46,11 @@ def login():
     password = request.form.get('password')
     
     conn = get_db_connection()
-    user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
+    user = cursor.fetchone()
+    
+    cursor.close()
     conn.close()
     
     if user and check_password_hash(user['password_hash'], password):
@@ -59,14 +72,17 @@ def index():
         return render_template('index.html', targets=None)
     
     conn = get_db_connection()
-    targets = conn.execute('SELECT * FROM targets WHERE user_id = ?', (session['user_id'],)).fetchall()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute('SELECT * FROM targets WHERE user_id = %s', (session['user_id'],))
+    targets = cursor.fetchall()
+    
+    cursor.close()
     conn.close()
     
     return render_template('index.html', targets=targets)
 
 @app.route('/add', methods=['POST'])
 def add():
-
     if 'user_id' not in session:
         return redirect('/')
         
@@ -74,9 +90,12 @@ def add():
     if new_domain:
         clean_domain = new_domain.replace("https://", "").replace("http://", "").strip().strip('/')
         conn = get_db_connection()
+        cursor = conn.cursor()
 
-        conn.execute('INSERT INTO targets (domain_name, user_id) VALUES (?, ?)', (clean_domain, session['user_id']))
+        cursor.execute('INSERT INTO targets (domain_name, user_id) VALUES (%s, %s)', (clean_domain, session['user_id']))
         conn.commit()
+        
+        cursor.close()
         conn.close()
     return redirect('/')
 
@@ -86,8 +105,11 @@ def delete(target_id):
         return redirect('/')
         
     conn = get_db_connection()
-    conn.execute('DELETE FROM targets WHERE id = ? AND user_id = ?', (target_id, session['user_id']))
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM targets WHERE id = %s AND user_id = %s', (target_id, session['user_id']))
     conn.commit()
+    
+    cursor.close()
     conn.close()
     
     return redirect('/')

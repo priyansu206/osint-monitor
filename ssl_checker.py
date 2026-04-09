@@ -4,11 +4,11 @@ import datetime
 import requests
 import os
 from dotenv import load_dotenv
-import sqlite3
+import psycopg2 
 
 load_dotenv()
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
-
+DATABASE_URL = os.getenv("DATABASE_URL")
 # 1.UPTIME MONITORING
 def check_uptime(domain):
     if domain == "evil-test.com":
@@ -17,7 +17,7 @@ def check_uptime(domain):
     print(f"[*] Pinging {domain} for uptime...")
     url = f"https://{domain}"
     try:
-        # We only care if the server is responding, not the content, so we set a short timeout and ignore SSL errors here since some targets might have expired certs.
+        #only care if the server is responding or not.
         response = requests.get(url, timeout=5)
         
         # IF HTTP 200 = UP, ELSE = SERVER IS UP BUT SOMETHING IS WRONG (LIKE A 500 ERROR)
@@ -28,23 +28,19 @@ def check_uptime(domain):
     except requests.exceptions.RequestException:
         # the server is dead
         return "Connection Failed"
-#3.threat intelligence check
+
+# 3.THREAT INTELLIGENCE CHECK
 def check_threat_intel(domain):
     print(f"[*] Asking URLhaus if {domain} is malicious...")
     url = "https://urlhaus-api.abuse.ch/v1/host/"
     
-    # This is how URLhaus expects the data to be formatted - they want a POST request with form data, and the key for the domain is 'host'. It's a bit old-school but it works.
     data = {'host': domain} 
     
     try:
-        # We send the request and wait for their response. We also set a timeout here because we don't want to get stuck waiting for their API if it's having issues.
         response = requests.post(url, data=data, timeout=10)
         
-        if response.status_code == 200:
-            # We translate the response into JSON so we can easily check the fields. URLhaus will return a field called 'query_status' that tells us if they found any records for the domain. If it's 'ok', that means they found something malicious, and if it's 'no_results', that means they didn't find anything. 
+        if response.status_code == 200: 
             json_data = response.json()
-            
-            # URLhaus returns 'query_status' = 'ok' if they found malicious records, and 'no_results' if they didn't find anything. So we check that field to determine if the domain is flagged for malware or not.
             if json_data.get('query_status') == 'ok':
                 return "MALWARE FLAGGED"
             else:
@@ -75,7 +71,6 @@ def send_discord_alert(domain, issue):
     if not DISCORD_WEBHOOK_URL:
         print("[!] Error: Webhook URL not found in .env file!")
         return
-    # The message will be different if it's a number of days vs an error string, so we handle that here.
     if isinstance(issue, int):
         status_message = f"SSL expires in **{issue} days**!"
     else:
@@ -98,19 +93,20 @@ def send_discord_alert(domain, issue):
 if __name__ == "__main__":
     print("--- OSINT SCANNER STARTING ---")
     
-    conn = sqlite3.connect('osint_monitor.db')
-    cursor = conn.cursor()
-
     try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor()
+        
         cursor.execute("SELECT id, domain_name FROM targets")
         domains_from_db = cursor.fetchall() 
-    except sqlite3.OperationalError:
-        print("[ERROR] Database not found. Did you run db_setup.py?")
+    except Exception as e:
+        print(f"[ERROR] Could not connect to Cloud Database. Error: {e}")
         exit()
 
     if not domains_from_db:
         print("[!] No domains found in the database.")
         exit()
+        
     for row in domains_from_db:
         target_id = row[0]       
         target_domain = row[1]  
@@ -149,7 +145,8 @@ if __name__ == "__main__":
             
         # Step E: Save the combined status to the database
         now_utc = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        cursor.execute("UPDATE targets SET last_checked = ?, status = ? WHERE id = ?", (now_utc, status_text, target_id))
+
+        cursor.execute("UPDATE targets SET last_checked = %s, status = %s WHERE id = %s", (now_utc, status_text, target_id))
 
     conn.commit()
     conn.close()
