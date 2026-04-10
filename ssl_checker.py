@@ -9,6 +9,7 @@ import psycopg2
 load_dotenv()
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 DATABASE_URL = os.getenv("DATABASE_URL")
+
 # 1.UPTIME MONITORING
 def check_uptime(domain):
     if domain == "evil-test.com":
@@ -26,8 +27,15 @@ def check_uptime(domain):
         else:
             return f"HTTP {response.status_code}" 
     except requests.exceptions.RequestException:
-        # the server is dead
+
         return "Connection Failed"
+    
+#IP function to grab the IP address of the domain.
+def get_ip(domain):
+    try:
+        return socket.gethostbyname(domain)
+    except Exception:
+        return "Unknown IP"
 
 # 3.THREAT INTELLIGENCE CHECK
 def check_threat_intel(domain):
@@ -116,11 +124,14 @@ if __name__ == "__main__":
 
         if uptime_result is True:
             
+            ip_addr = get_ip(target_domain) 
+            
             # Step B: If the server is responding, we check the threat intelligence to see if it's flagged for malware. This is important to do before the SSL check because if the domain is serving malware, that's a critical issue that needs immediate attention, and it might not even be worth checking the SSL status if it's already compromised. If it's flagged for malware, we alert immediately. If it's not flagged, then we proceed to check the SSL status.
             threat_status = check_threat_intel(target_domain)
             
             if threat_status == "MALWARE FLAGGED":
-                status_text = f"🟢 UP | 💀 MALWARE DETECTED!"
+               
+                status_text = f"🟢 UP ({ip_addr}) | 💀 MALWARE DETECTED!"
                 print(f"[URGENT] {target_domain} IS SERVING MALWARE!")
                 send_discord_alert(target_domain, "CRITICAL: Domain flagged for Malware by URLhaus Threat Intel!")
                 
@@ -130,12 +141,15 @@ if __name__ == "__main__":
                 
                 if isinstance(ssl_result, int):
                     if ssl_result < 30:
-                        status_text = f"🟢 UP | 🛡️ SAFE | 🚨 SSL Expiring ({ssl_result} days)"
+                        
+                        status_text = f"🟢 UP ({ip_addr}) | 🛡️ SAFE | 🚨 SSL Expiring ({ssl_result} days)"
                         send_discord_alert(target_domain, ssl_result)
                     else:
-                        status_text = f"🟢 UP | 🛡️ SAFE | ✅ SSL ({ssl_result} days)"
+                        
+                        status_text = f"🟢 UP ({ip_addr}) | 🛡️ SAFE | ✅ SSL ({ssl_result} days)"
                 else:
-                    status_text = f"🟢 UP | 🛡️ SAFE | ❌ SSL Error"
+                    
+                    status_text = f"🟢 UP ({ip_addr}) | 🛡️ SAFE | ❌ SSL Error"
                     send_discord_alert(target_domain, ssl_result)
         else:
             # Step D: If the server is not responding, skip everything else
