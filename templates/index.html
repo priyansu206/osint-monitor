@@ -188,13 +188,15 @@
                                     </span>
                                 {% endif %}
                             </td>
-                            <td class="p-5 text-gray-500 text-sm font-mono">
+
+                            <td class="p-5 text-gray-500 text-sm font-mono time-ago-cell" data-raw-time="{{ target.last_checked }}">
                                 {% if target.last_checked %}
                                     {{ target.last_checked }}
                                 {% else %}
                                     --/--/-- --:--:--
                                 {% endif %}
                             </td>
+
                             <td class="p-5 text-right">
                                 <form action="/delete/{{ target.id }}" method="POST" class="m-0 inline-block" onsubmit="return confirm('Purge this target from the monitoring queue?');">
                                     <button type="submit" class="text-gray-500 hover:text-red-500 transition duration-150 p-2 hover:bg-red-500/10 rounded-lg">
@@ -210,7 +212,6 @@
         </div>
 
         <script>
-            // Loading spinner logic remains exactly the same!
             document.getElementById('scanForm').addEventListener('submit', function() {
                 const btn = document.getElementById('scanButton');
                 const icon = document.getElementById('scanIcon');
@@ -228,6 +229,38 @@
             });
         </script>
         {% endif %} 
+        <script>
+            function timeSince(date) {
+                const seconds = Math.floor((new Date() - date) / 1000);
+                if (seconds < 60) return "Just now";
+                let interval = seconds / 31536000;
+                if (interval > 1) return Math.floor(interval) + " years ago";
+                interval = seconds / 2592000;
+                if (interval > 1) return Math.floor(interval) + " months ago";
+                interval = seconds / 86400;
+                if (interval > 1) return Math.floor(interval) + " days ago";
+                interval = seconds / 3600;
+                if (interval > 1) return Math.floor(interval) + " hours ago";
+                interval = seconds / 60;
+                if (interval > 1) return Math.floor(interval) + " mins ago";
+                return Math.floor(seconds) + " secs ago";
+            }
+
+            function updateTimestamps() {
+                document.querySelectorAll('.time-ago-cell').forEach(cell => {
+                    const rawTime = cell.getAttribute('data-raw-time');
+                    if (rawTime && rawTime !== "None" && rawTime.trim() !== "") {
+                        // Convert Python's "YYYY-MM-DD HH:MM:SS" into strict UTC format
+                        const date = new Date(rawTime.trim().replace(' ', 'T') + 'Z');
+                        if (!isNaN(date)) {
+                            cell.innerText = timeSince(date);
+                        }
+                    }
+                });
+            }
+            updateTimestamps();
+            setInterval(updateTimestamps, 60000);
+        </script>
     </div>
 </body>
 </html>
