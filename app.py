@@ -1,3 +1,6 @@
+import io
+import csv
+from flask import Response
 from flask import Flask, render_template, request, redirect, session
 from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
@@ -12,7 +15,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 app = Flask(__name__)
 
-#pulls the key from env files
+# pulls the key from env files
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "super_secret_dev_key_do_not_share")
 
 # DATABASE CONNECTION FUNCTION - This is a helper function to create a new database connection whenever we need to interact with the database.
@@ -126,6 +129,30 @@ def run_scan():
         print(f"[FLASK] Error: {e}")
         
     return redirect('/')
+@app.route('/export')
+def export():
+    if 'user_id' not in session:
+        return redirect('/')
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute('SELECT domain_name, status, last_checked FROM targets WHERE user_id = %s', (session['user_id'],))
+    targets = cursor.fetchall()
+    
+    cursor.close()
+    conn.close()
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(['Target Host', 'Current Status', 'Last Audit (UTC)'])
+
+    for t in targets:
+        writer.writerow([t['domain_name'], t['status'], t['last_checked']])
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment;filename=soc_threat_report.csv"}
+    )
 
 if __name__ == '__main__':
     app.run(debug=True, port=8080)
