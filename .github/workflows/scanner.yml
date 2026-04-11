@@ -1,33 +1,23 @@
 name: Automated OSINT Scanner
-
 on:
-  # This tells the robot to run automatically every 6 hours
   schedule:
-    - cron: '0 */6 * * *' 
-  # This allows you to click a button in GitHub to run it manually
-  workflow_dispatch: 
-
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 jobs:
   run-scanner:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          # We use your existing requirements.txt so it perfectly matches Render!
           pip install -r requirements.txt
-
       - name: Execute Scanner
-        # The robot needs your keys to talk to Tokyo and Discord
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
