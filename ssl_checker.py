@@ -18,10 +18,7 @@ def check_uptime(domain):
     print(f"[*] Pinging {domain} for uptime...")
     url = f"https://{domain}"
     try:
-        #only care if the server is responding or not.
         response = requests.get(url, timeout=5)
-        
-        # IF HTTP 200 = UP, ELSE = SERVER IS UP BUT SOMETHING IS WRONG (LIKE A 500 ERROR)
         if response.status_code == 200:
             return True
         else:
