@@ -42,7 +42,7 @@ def check_threat_intel(domain):
         if response.status_code == 200: 
             json_data = response.json()
             if json_data.get('query_status') == 'ok':
-                return "MALWARE FLAGGED"
+                return "MALWARE Found"
             return "SAFE"
         return "API Error"
     except Exception:
@@ -110,9 +110,9 @@ if __name__ == "__main__":
         exit()
 
     if not domains_from_db:
-        print("[!] No domains found in the database.")
-        exit()  
-
+        print("[!] No domains are found in the database.")
+        exit(0)
+    
     for row in domains_from_db:
         target_id, target_domain = row[0], row[1]  
         uptime_result = check_uptime(target_domain)
@@ -129,14 +129,14 @@ if __name__ == "__main__":
                     send_discord_alert(target_domain, f"INFRASTRUCTURE VULNERABILITY: {shodan_status}")
             
             threat_status = check_threat_intel(target_domain)
-            if threat_status == "MALWARE FLAGGED":
+            if threat_status == "MALWARE Found":
                 status_text = f" UP ({ip_addr}) | MALWARE DETECTED!"
                 print(f"[URGENT] {target_domain} IS SERVING MALWARE!")
                 send_discord_alert(target_domain, "CRITICAL: Domain flagged for Malware by URLhaus Threat Intel!") 
             else:
                 ssl_result = check_ssl_expiry(target_domain)
                 if isinstance(ssl_result, int):
-                    if ssl_result < 30: 
+                    if ssl_result < 20: 
                         status_text = f" UP ({ip_addr}) |  SAFE |  SSL Expiring ({ssl_result} days){shodan_flag}"
                         send_discord_alert(target_domain, ssl_result)
                     else:
